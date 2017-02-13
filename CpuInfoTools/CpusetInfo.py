@@ -4,6 +4,7 @@ import subprocess
 
 proc_path = '/proc'
 cmd_get_all_proc = 'adb shell ls proc'
+ori_pid_list = []
 pid_list = []
 fg_list = []
 fg_ui_list = []
@@ -16,7 +17,6 @@ foreground_ui = '/foreground/ui'
 foreground_boost = '/foreground/boost'
 background_system = '/system-background'
 default = '/'
-
 
 list_cpuset_name = ['performance', 'foreground', 'foreground-ui', 'foreground-boost', 'background', 'background-system']
 
@@ -46,6 +46,14 @@ def execute_command(cmdstring, list=None, cwd=None, timeout=None, shell=True):
 
     sub = os.popen(cmdstring_list)
     return sub.readlines()
+
+
+def get_cpuset_info_from_list(task_list):
+    ps_info = execute_command("adb shell ps")
+    for task in task_list:
+        for process in ps_info:
+            if (task.strip() in process):
+                print("Task " + task + " ProcessInfo = " + process)
 
 
 # 获取此cpuset中的所有 Task
@@ -87,59 +95,41 @@ def get_tasks_form_cpuset():
     print("-------------End list_cpuset_default_task info-----------------------------")
 
 
-def get_cpuset_info_from_list(task_list):
-    ps_info = execute_command("adb shell ps")
-    for task in task_list:
-        for process in ps_info:
-            if(task.strip() in process):
-                print("Task " + task + " ProcessInfo = " + process)
-
-
-# 获取cpuset对应的cpu信息
-def get_cpus_for_cpuset():
-    return
-
-def get_cpuset_by_pid(pid):
-    return 0
-
-
-def get_cpuset_all():
+def get_cpuset_all(cpuset):
     # 1. 获取当前所有进程的pid
     get_all_pid()
 
     # 2. 获取单个进程的 cpuset 信息
-    get_cpuset_info(pid_list , foreground , 0)
+    get_cpuset_info(pid_list, cpuset)
 
     return 0
 
 
+# 获取当前所有进程的pid
 def get_all_pid():
-    proc = subprocess.Popen([cmd_get_all_proc], stdout=subprocess.PIPE, shell=True, universal_newlines=True)
-    (out, err) = proc.communicate()
-
-    for line in out.splitlines():
-        if line.isdigit():
-            pid_list.append(line)
+    print("******* get all pid start *******")
+    ori_pid_list = execute_command(cmd_get_all_proc)
+    for line in ori_pid_list:
+        if line.strip().isdigit():
+            pid_list.append(line.strip())
             # for i in pid_list:
             #     print(i)
+    print("******* get all pid end *******")
 
 
-def get_cpuset_info(lists , cpuset , pid_number_min):
+# 获取单个进程的 cpuset 信息
+def get_cpuset_info(lists, cpuset):
+    print("******* get all cpuset info start *******")
     for pid in lists:
-        proc1 = subprocess.Popen(['adb shell cat /proc/' + pid + "/cpuset"], stdout=subprocess.PIPE, shell=True,
-                                 universal_newlines=True)
-        (out1, err) = proc1.communicate()
-        position = out1.strip()
-        # print(position)
-        if position == cpuset and int(pid) >= pid_number_min:
-            proc2 = subprocess.Popen(['adb shell cat /proc/' + pid + "/comm"], stdout=subprocess.PIPE, shell=True,
-                                     universal_newlines=True)
-            (out2, err) = proc2.communicate()
+        cpuset_info_config = execute_command('adb shell cat /proc/' + pid + '/cpuset')
+        if cpuset == cpuset_info_config[0].strip():
+            cpuset_info_name = execute_command('adb shell cat /proc/' + pid + '/comm')
             print("-----------------------------")
             print("pid       = " + pid.strip())
-            print("cpuset    = " + out1.strip())
-            print("proc name = " + out2.strip())
+            print("cpuset    = " + cpuset_info_config[0].strip())
+            print("proc name = " + cpuset_info_name[0].strip())
             print("-----------------------------")
+    print("******* get all cpuset info end *******")
 
 
 def get_pid_form_cpuset(cpuset_info):
@@ -171,7 +161,7 @@ def get_pid_form_cpuset(cpuset_info):
 
 if __name__ == "__main__":
     # get_tasks_form_cpuset()
-    get_cpuset_all()
+    get_cpuset_all(background)  # 获取 cpuset 组对应的进程
     # get_pid_form_cpuset('fg')
     # get_pid_form_cpuset('system-bg')
     # get_pid_form_cpuset('bg')
