@@ -1,5 +1,22 @@
 import shlex
 import os
+import subprocess
+
+proc_path = '/proc'
+cmd_get_all_proc = 'adb shell ls proc'
+pid_list = []
+fg_list = []
+fg_ui_list = []
+fg_boost_list = []
+bg_list = []
+bg_system_list = []
+background = '/background'
+foreground = '/foreground'
+foreground_ui = '/foreground/ui'
+foreground_boost = '/foreground/boost'
+background_system = '/system-background'
+default = '/'
+
 
 list_cpuset_name = ['performance', 'foreground', 'foreground-ui', 'foreground-boost', 'background', 'background-system']
 
@@ -82,6 +99,81 @@ def get_cpuset_info_from_list(task_list):
 def get_cpus_for_cpuset():
     return
 
+def get_cpuset_by_pid(pid):
+    return 0
+
+
+def get_cpuset_all():
+    # 1. 获取当前所有进程的pid
+    get_all_pid()
+
+    # 2. 获取单个进程的 cpuset 信息
+    get_cpuset_info(pid_list , foreground , 0)
+
+    return 0
+
+
+def get_all_pid():
+    proc = subprocess.Popen([cmd_get_all_proc], stdout=subprocess.PIPE, shell=True, universal_newlines=True)
+    (out, err) = proc.communicate()
+
+    for line in out.splitlines():
+        if line.isdigit():
+            pid_list.append(line)
+            # for i in pid_list:
+            #     print(i)
+
+
+def get_cpuset_info(lists , cpuset , pid_number_min):
+    for pid in lists:
+        proc1 = subprocess.Popen(['adb shell cat /proc/' + pid + "/cpuset"], stdout=subprocess.PIPE, shell=True,
+                                 universal_newlines=True)
+        (out1, err) = proc1.communicate()
+        position = out1.strip()
+        # print(position)
+        if position == cpuset and int(pid) >= pid_number_min:
+            proc2 = subprocess.Popen(['adb shell cat /proc/' + pid + "/comm"], stdout=subprocess.PIPE, shell=True,
+                                     universal_newlines=True)
+            (out2, err) = proc2.communicate()
+            print("-----------------------------")
+            print("pid       = " + pid.strip())
+            print("cpuset    = " + out1.strip())
+            print("proc name = " + out2.strip())
+            print("-----------------------------")
+
+
+def get_pid_form_cpuset(cpuset_info):
+    cmd = ''
+    if cpuset_info == 'fg':
+        cmd = 'adb shell cat /dev/cpuset/foreground/tasks'
+    if cpuset_info == 'system-bg':
+        cmd = 'adb shell cat /dev/cpuset/system-background/tasks'
+    if cpuset_info == 'bg':
+        cmd = 'adb shell cat /dev/cpuset/background/tasks'
+    if cpuset_info == 'df':
+        cmd = 'adb shell cat /dev/cpuset/tasks'
+    if cpuset_info == 'fg-ui':
+        cmd = 'adb shell cat /dev/cpuset/foreground/ui/tasks'
+
+    proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell=True,
+                            universal_newlines=True)
+    (out, err) = proc.communicate()
+    print(cpuset_info + " ******************* ")
+    print(cpuset_info + " proc = " + out)
+    print(cpuset_info + " ******************* ")
+
+    for line in out.splitlines():
+        if line.isdigit():
+            pid_list.append(line)
+            for i in pid_list:
+                print(i)
+
 
 if __name__ == "__main__":
-    get_tasks_form_cpuset()
+    # get_tasks_form_cpuset()
+    get_cpuset_all()
+    # get_pid_form_cpuset('fg')
+    # get_pid_form_cpuset('system-bg')
+    # get_pid_form_cpuset('bg')
+    # get_pid_form_cpuset('df')
+    # get_pid_form_cpuset('fg-ui')
